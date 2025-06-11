@@ -13,6 +13,7 @@ name = "matchjson"
 version = "0.0.0"
 dependencies = [
  "phf",
+ "serde",
  "serde_json",
 ]
 

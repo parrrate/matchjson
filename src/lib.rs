@@ -1,0 +1,409 @@
+use std::{fmt::Display, marker::PhantomData};
+
+pub use phf;
+use serde::Serialize;
+pub use serde_json;
+
+#[doc(hidden)]
+pub trait Exclusion {
+    #[doc(hidden)]
+    const EXCLUDE: &'static phf::Set<&'static str>;
+}
+
+pub struct Exclude<'a, E: Exclusion> {
+    #[doc(hidden)]
+    pub object: &'a serde_json::Map<String, serde_json::Value>,
+    #[doc(hidden)]
+    pub _exclude: PhantomData<E>,
+}
+
+impl<E: Exclusion> Serialize for Exclude<'_, E> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(self.object.len() - E::EXCLUDE.len()))?;
+        for (k, v) in self {
+            map.serialize_entry(k, v)?;
+        }
+        map.end()
+    }
+}
+
+impl<'a, E: Exclusion> IntoIterator for &Exclude<'a, E> {
+    type Item = (&'a String, &'a serde_json::Value);
+    type IntoIter = ExcludeIter<'a, E>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, E: Exclusion> Exclude<'a, E> {
+    pub fn iter(&self) -> ExcludeIter<'a, E> {
+        ExcludeIter {
+            iter: self.object.iter(),
+            _exclude: PhantomData,
+        }
+    }
+}
+
+pub struct ExcludeIter<'a, E: Exclusion> {
+    iter: serde_json::map::Iter<'a>,
+    _exclude: PhantomData<E>,
+}
+
+impl<'a, E: Exclusion> Iterator for ExcludeIter<'a, E> {
+    type Item = (&'a String, &'a serde_json::Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let (k, v) = self.iter.next()?;
+            if !E::EXCLUDE.contains(k) {
+                break Some((k, v));
+            }
+        }
+    }
+}
+
+impl<E: Exclusion> Display for Exclude<'_, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // taken from `serde_json::Value`
+        struct WriterFormatter<'a, 'b: 'a> {
+            inner: &'a mut std::fmt::Formatter<'b>,
+        }
+        impl<'a, 'b> std::io::Write for WriterFormatter<'a, 'b> {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                let s = str::from_utf8(buf).expect("serde_json only outputs utf8");
+                self.inner.write_str(s).map_err(io_error)?;
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        fn io_error(_: std::fmt::Error) -> std::io::Error {
+            std::io::Error::other("fmt error")
+        }
+        let alternate = f.alternate();
+        let mut wr = WriterFormatter { inner: f };
+        if alternate {
+            serde_json::ser::to_writer_pretty(&mut wr, self).map_err(|_| std::fmt::Error)
+        } else {
+            serde_json::ser::to_writer(&mut wr, self).map_err(|_| std::fmt::Error)
+        }
+    }
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! ifletarray {
+    ($x:expr, [], $b:expr, $f:expr $(,)?) => {
+        match $x {
+            [] => $b,
+            _ => $f,
+        }
+    };
+    ($x:expr, [$p:tt $(,)?], $b:expr, $f:expr $(,)?) => {
+        match $x {
+            [only] => $crate::ifletjson!(only, $b, $f, $p),
+            _ => $f,
+        }
+    };
+    ($x:expr, [$($e:ident @ )? .. $(,)?] $(rev [])?, $b:expr, $f:expr $(,)?) => {{
+        $($e = $x;)?
+        $b
+    }};
+    ($x:expr, [$($e:ident @)? .. $(,)?] rev [$p1:tt $(,$p2:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
+        match $x {
+            [rest @ .., last] => $crate::ifletjson!(
+                last,
+                $crate::ifletarray!(rest, [$($e @ )? ..] rev [$($p2)*], $b, $f),
+                $f,
+                $p1,
+            ),
+            _ => $f,
+        }
+    };
+    ($x:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?] rev [$($p3:tt)*], $b:expr, $f:expr $(,)?) => {
+        $crate::ifletarray!($x, [$($e @ )? .., $($p2)*] rev [$p1, $($p3)*], $b, $f)
+    };
+    ($x:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
+        $crate::ifletarray!($x, [$($e @ )? .., $($p2)*] rev [$p1], $b, $f)
+    };
+    ($x:expr, [$p1:tt, $($p2:tt)+], $b:expr, $f:expr $(,)?) => {
+        match $x {
+            [first, rest @ ..] => $crate::ifletjson!(
+                first,
+                $crate::ifletarray!(rest, [$($p2)*], $b, $f),
+                $f,
+                $p1,
+            ),
+            _ => $f,
+        }
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! ifletjson {
+    ($x:expr, $b:expr, $f:expr, | $p1:tt | $($p2:tt)*) => {
+        $crate::ifletjson!($x, $b, $crate::ifletjson!($x, $b, $f, $($p2)*), $p1)
+    };
+    ($x:expr, $b:expr, $f:expr, & $p1:tt & $($p2:tt)*) => {
+        $crate::ifletjson!($x, $crate::ifletjson!($x, $b, $f, $($p2)*), $f, $p1)
+    };
+    ($x:expr, $b:expr, $f:expr, $p1:tt | $($p2:tt)*) => {
+        $crate::ifletjson!($x, $b, $f, | $p1 | $($p2)*)
+    };
+    ($x:expr, $b:expr, $f:expr, $p1:tt & $($p2:tt)*) => {
+        $crate::ifletjson!($x, $b, $f, & $p1 & $($p2)*)
+    };
+    ($x:expr, $b:expr, $f:expr, ($($p:tt)*) $(,)?) => {
+        $crate::ifletjson!($x, $b, $f, $($p)*)
+    };
+    ($x:expr, $b:expr, $f:expr, _ $(,)?) => {$b};
+    ($x:expr, $b:expr, $f:expr, $p:ident $(,)?) => {{
+        $p = $x;
+        $b
+    }};
+    ($x:expr, $b:expr, $f:expr, $p1:ident @ $($p2:tt)*) => {{
+        $p1 = $x;
+        $crate::ifletjson!($x, $b, $f, $($p2)*)
+    }};
+    ($x:expr, $b:expr, $f:expr, $p:literal $(,)?) => {{ if $x == $p { $b } else { $f } }};
+    ($x:expr, $b:expr, $f:expr, null $(,)?) => {{ if $x.is_null() { $b } else { $f } }};
+    ($x:expr, $b:expr, $f:expr, $p:ident: $(&)? str $(,)?) => {{
+        if let Some(s) = $x.as_str() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
+    }};
+    ($x:expr, $b:expr, $f:expr, $p:ident: bool $(,)?) => {{
+        if let Some(s) = $x.as_bool() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
+    }};
+    ($x:expr, $b:expr, $f:expr, $p:ident: i64 $(,)?) => {{
+        if let Some(s) = $x.as_i64() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
+    }};
+    ($x:expr, $b:expr, $f:expr, $p:ident: u64 $(,)?) => {{
+        if let Some(s) = $x.as_u64() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
+    }};
+    ($x:expr, $b:expr, $f:expr, $p:ident: f64 $(,)?) => {{
+        if let Some(s) = $x.as_f64() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
+    }};
+    ($x:expr, $b:expr, $f:expr, { $k:literal: $v:tt $(,)? } $(,)?) => {{
+        if let Some(v) = $x.get($k) {
+            $crate::ifletjson!(v, $b, $f, $v)
+        } else {
+            $f
+        }
+    }};
+    ($x:expr, $b:expr, $f:expr, { $k:literal: $v:tt, $( $kp:literal: $vp:tt ),+ $(,)? } $(,)?) => {{
+        $crate::ifletjson!($x, $crate::ifletjson!($x, $b, $f, { $( $kp: $vp ),+ }), $f, {$k: $v})
+    }};
+    ($x:expr, $b:expr, $f:expr, { $( $kp:literal: $vp:tt, )+ ..$e:ident } $(,)?) => {{
+        $crate::ifletjson!($x, {
+            if let Some(object) = $x.as_object() {
+                #[derive(Clone, Copy)]
+                struct E;
+                impl $crate::Exclusion for E {
+                    const EXCLUDE: &'static $crate::phf::Set<&'static str> =
+                        &$crate::phf::phf_set!{ $($kp),+ };
+                }
+                $e = $crate::Exclude {
+                    object,
+                    _exclude: ::core::marker::PhantomData::<E>,
+                };
+                $b
+            } else {
+                $f
+            }
+        }, $f, { $( $kp: $vp ),+ })
+    }};
+    ($x:expr, $b:expr, $f:expr, {..$e:ident} $(,)?) => {
+        if let Some(s) = $x.as_object() {
+            $e = s;
+            $b
+        } else {
+            $f
+        }
+    };
+    ($x:expr, $b:expr, $f:expr, {} $(,)?) => {
+        if $x.is_object() {
+            $b
+        } else {
+            $f
+        }
+    };
+    ($x:expr, $b:expr, $f:expr, [$($p:tt)*] $(,)?) => {{
+        if let Some(array) = $x.as_array() {
+            $crate::ifletarray!(array.as_slice(), [$($p)*], $b, $f)
+        } else {
+            $f
+        }
+    }}
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! varsarray {
+    ($c:expr, []) => {
+        $c
+    };
+    ($c:expr, [$p:tt $(,)?]) => {
+        $crate::varsjson!($c, $p)
+    };
+    ($c:expr, [$($e:ident @ )? .. $(,)?] $(rev [])?) => {
+        $crate::varsjson!($c, $($e)?)
+    };
+    ($c:expr, [$($e:ident @)? .. $(,)?] rev [$p1:tt $(,$p2:tt)* $(,)?]) => {
+        $crate::varsarray!($crate::varsjson!($c, $p1), [$($e @ )? ..] rev [$($p2)*])
+    };
+    ($c:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?] rev [$($p3:tt)*]) => {
+        $crate::varsarray!($c, [$($e @ )? .., $($p2)*] rev [$p1, $($p3)*])
+    };
+    ($c:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?]) => {
+        $crate::varsarray!($c, [$($e @ )? .., $($p2)*] rev [$p1])
+    };
+    ($c:expr, [$p1:tt, $($p2:tt)+]) => {
+        $crate::varsarray!($crate::varsjson!($c, $p1), [$($p2)*])
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! varsjson {
+    ($c:expr,) => {
+        $c
+    };
+    ($c:expr, | $p1:tt | $($p2:tt)*) => {
+        $crate::varsjson!($crate::varsjson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, & $p1:tt & $($p2:tt)*) => {
+        $crate::varsjson!($crate::varsjson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, $p1:tt | $($p2:tt)*) => {
+        $crate::varsjson!($c, | $p1 | $($p2)*)
+    };
+    ($c:expr, $p1:tt & $($p2:tt)*) => {
+        $crate::varsjson!($c, & $p1 & $($p2)*)
+    };
+    ($c:expr, ($($p:tt)*) $(,)?) => {
+        $crate::varsjson!($c, $($p)*)
+    };
+    ($c:expr, _ $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident $(,)?) => {{
+        #[allow(unused)]
+        let $p;
+        #[allow(unused)]
+        #[allow(unreachable_code)]
+        #[allow(clippy::diverging_sub_expression)]
+        if false {
+            $p = ::core::unreachable!();
+        }
+        $c
+    }};
+    ($c:expr, $p1:ident @ $($p2:tt)*) => {
+        $crate::varsjson!($crate::varsjson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, $p:literal $(,)?) => {
+        $c
+    };
+    ($c:expr, null $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident: $(&)? str $(,)?) => {
+        $crate::varsjson!($c, $p)
+    };
+    ($c:expr, $p:ident: $(&)? bool $(,)?) => {
+        $crate::varsjson!($c, $p)
+    };
+    ($c:expr, $p:ident: $(&)? i64 $(,)?) => {
+        $crate::varsjson!($c, $p)
+    };
+    ($c:expr, $p:ident: $(&)? u64 $(,)?) => {
+        $crate::varsjson!($c, $p)
+    };
+    ($c:expr, $p:ident: $(&)? f64 $(,)?) => {
+        $crate::varsjson!($c, $p)
+    };
+    ($c:expr, { $k:literal: $v:tt $(,)? } $(,)?) => {
+        $crate::varsjson!($c, $v)
+    };
+    ($c:expr, { $k:literal: $v:tt, $( $kp:literal: $vp:tt ),+ $(,)? } $(,)?) => {
+        $crate::varsjson!($crate::varsjson!($c, {$k: $v}), { $( $kp: $vp ),+ })
+    };
+    ($c:expr, { $( $kp:literal: $vp:tt, )+ ..$e:ident } $(,)?) => {
+        $crate::varsjson!($crate::varsjson!($c, $e), { $( $kp: $vp ),+ })
+    };
+    ($c:expr, {..$e:ident} $(,)?) => {
+        $crate::varsjson!($c, $e)
+    };
+    ($c:expr, {} $(,)?) => {
+        $c
+    };
+    ($c:expr, [$($p:tt)*] $(,)?) => {
+        $crate::varsarray!($c, [$($p)*])
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! matchjson_raw {
+    ($x:expr, _ => $b:expr $(,)?) => {
+        $b
+    };
+    ($x:expr, $p:ident => $b:expr $(,)?) => {{
+        let $p = $x;
+        $b
+    }};
+    ($x:expr, $p1:tt => $b:expr, $($p2:tt => $fp:expr),+ $(,)?) => {
+        'bail: {
+            $crate::varsjson!(
+                {
+                    $crate::ifletjson!(
+                        $x,
+                        {},
+                        break 'bail $crate::matchjson_raw!($x, $($p2 => $fp),+),
+                        $p1,
+                    );
+                    $b
+                },
+                $p1,
+            )
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! matchjson {
+    ($x:expr, $($t:tt)*) => {{
+        let s: &$crate::serde_json::Value = &$x;
+        $crate::matchjson_raw!(s, $($t)*)
+    }};
+}
