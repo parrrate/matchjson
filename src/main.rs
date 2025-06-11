@@ -70,50 +70,50 @@ macro_rules! ifletarray {
         let _ = $x;
         $b
     }};
-    ($x:expr, [$($e:ident @)? .. $(,)?] rev [$p:tt $(,$pp:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
+    ($x:expr, [$($e:ident @)? .. $(,)?] rev [$p1:tt $(,$p2:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
         match $x {
-            [rest @ .., last] => ifletjson!(last, ifletarray!(rest, [$($e @ )? ..] rev [$($pp)*], $b, $f), $f, $p),
+            [rest @ .., last] => ifletjson!(last, ifletarray!(rest, [$($e @ )? ..] rev [$($p2)*], $b, $f), $f, $p1),
             _ => $f,
         }
     };
-    ($x:expr, [$($e:ident @ )? .., $p:tt $(, $pp1:tt)* $(,)?] rev [$($pp2:tt)*], $b:expr, $f:expr $(,)?) => {
-        ifletarray!($x, [$($e @ )? .., $($pp1)*] rev [$p, $($pp2)*], $b, $f)
+    ($x:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?] rev [$($p3:tt)*], $b:expr, $f:expr $(,)?) => {
+        ifletarray!($x, [$($e @ )? .., $($p2)*] rev [$p1, $($p3)*], $b, $f)
     };
-    ($x:expr, [$($e:ident @ )? .., $p:tt $(, $pp:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
-        ifletarray!($x, [$($e @ )? .., $($pp)*] rev [$p], $b, $f)
+    ($x:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
+        ifletarray!($x, [$($e @ )? .., $($p2)*] rev [$p1], $b, $f)
     };
-    ($x:expr, [$p:tt, $($pp:tt)+], $b:expr, $f:expr $(,)?) => {
+    ($x:expr, [$p1:tt, $($p2:tt)+], $b:expr, $f:expr $(,)?) => {
         match $x {
-            [first, rest @ ..] => ifletjson!(first, ifletarray!(rest, [$($pp)*], $b, $f), $f, $p),
+            [first, rest @ ..] => ifletjson!(first, ifletarray!(rest, [$($p2)*], $b, $f), $f, $p1),
             _ => $f,
         }
     };
 }
 
 macro_rules! ifletjson {
-    ($x:expr, $b:expr, $f:expr, | $p:tt | $($pp:tt)*) => {
-        ifletjson!($x, $b, ifletjson!($x, $b, $f, $($pp)*), $p)
+    ($x:expr, $b:expr, $f:expr, | $p1:tt | $($p2:tt)*) => {
+        ifletjson!($x, $b, ifletjson!($x, $b, $f, $($p2)*), $p1)
     };
-    ($x:expr, $b:expr, $f:expr, & $p:tt & $($pp:tt)*) => {
-        ifletjson!($x, ifletjson!($x, $b, $f, $($pp)*), $f, $p)
+    ($x:expr, $b:expr, $f:expr, & $p1:tt & $($p2:tt)*) => {
+        ifletjson!($x, ifletjson!($x, $b, $f, $($p2)*), $f, $p1)
     };
-    ($x:expr, $b:expr, $f:expr, $p:tt | $($pp:tt)*) => {
-        ifletjson!($x, $b, $f, | $p | $($pp)*)
+    ($x:expr, $b:expr, $f:expr, $p1:tt | $($p2:tt)*) => {
+        ifletjson!($x, $b, $f, | $p1 | $($p2)*)
     };
-    ($x:expr, $b:expr, $f:expr, $p:tt & $($pp:tt)*) => {
-        ifletjson!($x, $b, $f, & $p & $($pp)*)
+    ($x:expr, $b:expr, $f:expr, $p1:tt & $($p2:tt)*) => {
+        ifletjson!($x, $b, $f, & $p1 & $($p2)*)
     };
-    ($x:expr, $b:expr, $f:expr, ($($pp:tt)*) $(,)?) => {
-        ifletjson!($x, $b, $f, $($pp)*)
+    ($x:expr, $b:expr, $f:expr, ($($p:tt)*) $(,)?) => {
+        ifletjson!($x, $b, $f, $($p)*)
     };
     ($x:expr, $b:expr, $f:expr, _ $(,)?) => {$b};
     ($x:expr, $b:expr, $f:expr, $p:ident $(,)?) => {{
         let $p = $x;
         $b
     }};
-    ($x:expr, $b:expr, $f:expr, $p:ident @ $($pp:tt)*) => {{
-        let $p = $x;
-        ifletjson!($x, $b, $f, $($pp)*)
+    ($x:expr, $b:expr, $f:expr, $p1:ident @ $($p2:tt)*) => {{
+        let $p1 = $x;
+        ifletjson!($x, $b, $f, $($p2)*)
     }};
     ($x:expr, $b:expr, $f:expr, $p:literal $(,)?) => {{ if $x == $p { $b } else { $f } }};
     ($x:expr, $b:expr, $f:expr, null $(,)?) => {{ if $x.is_null() { $b } else { $f } }};
@@ -191,8 +191,8 @@ macro_rules! matchjson {
         let $p = $x;
         $b
     }};
-    ($x:expr, $p:tt => $b:expr, $($pp:tt => $fp:expr),+ $(,)?) => {
-        ifletjson!($x, $b, matchjson!($x, $($pp => $fp),+), $p)
+    ($x:expr, $p1:tt => $b:expr, $($p2:tt => $fp:expr),+ $(,)?) => {
+        ifletjson!($x, $b, matchjson!($x, $($p2 => $fp),+), $p1)
     };
 }
 
