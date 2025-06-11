@@ -5,7 +5,7 @@ use serde::Serialize;
 pub use serde_json;
 
 #[doc(hidden)]
-pub trait Exclusion {
+pub trait Exclusion: Debug {
     #[doc(hidden)]
     const EXCLUDE: &'static phf::Set<&'static str>;
 }
@@ -22,6 +22,7 @@ impl<E: Exclusion> Debug for Excluded<E> {
     }
 }
 
+#[derive(Debug)]
 pub struct Exclude<'a, E: Exclusion> {
     #[doc(hidden)]
     pub object: &'a serde_json::Map<String, serde_json::Value>,
@@ -239,15 +240,22 @@ macro_rules! ifletjson {
     ($x:expr, $b:expr, $f:expr, { $( $kp:literal: $vp:tt, )+ ..$e:ident } $(,)?) => {{
         $crate::ifletjson!($x, {
             if let Some(object) = $x.as_object() {
-                #[derive(Clone, Copy)]
-                struct E;
-                impl $crate::Exclusion for E {
-                    const EXCLUDE: &'static $crate::phf::Set<&'static str> =
-                        &$crate::phf::phf_set!{ $($kp),+ };
-                }
-                $e = $crate::Exclude {
-                    object,
-                    _exclude: $crate::Excluded::<E>,
+                $e = {
+                    #[derive(Clone, Copy)]
+                    struct E;
+                    impl $crate::Exclusion for E {
+                        const EXCLUDE: &'static $crate::phf::Set<&'static str> =
+                            &$crate::phf::phf_set!{ $($kp),+ };
+                    }
+                    impl ::core::fmt::Debug for E {
+                        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                            $crate::Excluded::<E>.fmt(f)
+                        }
+                    }
+                    $crate::Exclude {
+                        object,
+                        _exclude: $crate::Excluded::<E>,
+                    }
                 };
                 $b
             } else {
