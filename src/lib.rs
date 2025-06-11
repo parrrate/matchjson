@@ -5,12 +5,13 @@ use serde::Serialize;
 pub use serde_json;
 
 #[doc(hidden)]
-pub trait Exclusion: Debug {
+pub trait Exclusion: Debug + Copy {
     #[doc(hidden)]
     const EXCLUDE: &'static phf::Set<&'static str>;
 }
 
 #[doc(hidden)]
+#[derive(Clone, Copy)]
 #[ghost::phantom]
 pub struct Excluded<E: Exclusion>;
 
@@ -22,7 +23,7 @@ impl<E: Exclusion> Debug for Excluded<E> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Exclude<'a, E: Exclusion> {
     #[doc(hidden)]
     pub object: &'a serde_json::Map<String, serde_json::Value>,
