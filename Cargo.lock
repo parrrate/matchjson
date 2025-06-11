@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "ghost"
+version = "0.1.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8661f18e73000bcea2f0d68262eb8ac1b1e951e10eb936d3f95b36201c136d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12,6 +23,7 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 name = "matchjson"
 version = "0.0.0"
 dependencies = [
+ "ghost",
  "phf",
  "serde",
  "serde_json",

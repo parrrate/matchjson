@@ -1,4 +1,4 @@
-use std::{fmt::Display, marker::PhantomData};
+use std::fmt::{Debug, Display};
 
 pub use phf;
 use serde::Serialize;
@@ -10,11 +10,23 @@ pub trait Exclusion {
     const EXCLUDE: &'static phf::Set<&'static str>;
 }
 
+#[doc(hidden)]
+#[ghost::phantom]
+pub struct Excluded<E: Exclusion>;
+
+impl<E: Exclusion> Debug for Excluded<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Excluded")
+            .field("EXCLUDE", &E::EXCLUDE)
+            .finish()
+    }
+}
+
 pub struct Exclude<'a, E: Exclusion> {
     #[doc(hidden)]
     pub object: &'a serde_json::Map<String, serde_json::Value>,
     #[doc(hidden)]
-    pub _exclude: PhantomData<E>,
+    pub _exclude: Excluded<E>,
 }
 
 impl<E: Exclusion> Serialize for Exclude<'_, E> {
@@ -44,14 +56,14 @@ impl<'a, E: Exclusion> Exclude<'a, E> {
     pub fn iter(&self) -> ExcludeIter<'a, E> {
         ExcludeIter {
             iter: self.object.iter(),
-            _exclude: PhantomData,
+            _exclude: Excluded,
         }
     }
 }
 
 pub struct ExcludeIter<'a, E: Exclusion> {
     iter: serde_json::map::Iter<'a>,
-    _exclude: PhantomData<E>,
+    _exclude: Excluded<E>,
 }
 
 impl<'a, E: Exclusion> Iterator for ExcludeIter<'a, E> {
@@ -235,7 +247,7 @@ macro_rules! ifletjson {
                 }
                 $e = $crate::Exclude {
                     object,
-                    _exclude: ::core::marker::PhantomData::<E>,
+                    _exclude: $crate::Excluded::<E>,
                 };
                 $b
             } else {
