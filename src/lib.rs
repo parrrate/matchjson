@@ -61,6 +61,10 @@ impl<'a, E: Exclusion> Exclude<'a, E> {
             _exclude: Excluded,
         }
     }
+
+    pub fn contains_key(&self, key: &str) -> bool {
+        !E::EXCLUDE.contains(key) && self.object.contains_key(key)
+    }
 }
 
 pub struct ExcludeIter<'a, E: Exclusion> {
