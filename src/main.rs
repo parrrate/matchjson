@@ -160,14 +160,14 @@ macro_rules! ifletjson {
             }
         }, $f, { $( $kp: $vp ),+ })
     }};
-    ($x:expr, $b:expr, $f:expr, {..$e:ident}) => {
+    ($x:expr, $b:expr, $f:expr, {..$e:ident} $(,)?) => {
         if let Some($e) = $x.as_object() {
             $b
         } else {
             $f
         }
     };
-    ($x:expr, $b:expr, $f:expr, {}) => {
+    ($x:expr, $b:expr, $f:expr, {} $(,)?) => {
         if $x.is_object() {
             $b
         } else {
