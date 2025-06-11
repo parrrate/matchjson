@@ -66,8 +66,7 @@ macro_rules! ifletarray {
         }
     };
     ($x:expr, [$($e:ident @ )? .. $(,)?] $(rev [])?, $b:expr, $f:expr $(,)?) => {{
-        $(let $e = $x;)?
-        let _ = $x;
+        $($e = $x;)?
         $b
     }};
     ($x:expr, [$($e:ident @)? .. $(,)?] rev [$p1:tt $(,$p2:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
@@ -108,29 +107,54 @@ macro_rules! ifletjson {
     };
     ($x:expr, $b:expr, $f:expr, _ $(,)?) => {$b};
     ($x:expr, $b:expr, $f:expr, $p:ident $(,)?) => {{
-        let $p = $x;
+        $p = $x;
         $b
     }};
     ($x:expr, $b:expr, $f:expr, $p1:ident @ $($p2:tt)*) => {{
-        let $p1 = $x;
+        $p1 = $x;
         ifletjson!($x, $b, $f, $($p2)*)
     }};
     ($x:expr, $b:expr, $f:expr, $p:literal $(,)?) => {{ if $x == $p { $b } else { $f } }};
     ($x:expr, $b:expr, $f:expr, null $(,)?) => {{ if $x.is_null() { $b } else { $f } }};
     ($x:expr, $b:expr, $f:expr, $p:ident: $(&)? str $(,)?) => {{
-        if let Some($p) = $x.as_str() { $b } else { $f }
+        if let Some(s) = $x.as_str() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
     }};
     ($x:expr, $b:expr, $f:expr, $p:ident: bool $(,)?) => {{
-        if let Some($p) = $x.as_bool() { $b } else { $f }
+        if let Some(s) = $x.as_bool() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
     }};
     ($x:expr, $b:expr, $f:expr, $p:ident: i64 $(,)?) => {{
-        if let Some($p) = $x.as_i64() { $b } else { $f }
+        if let Some(s) = $x.as_i64() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
     }};
     ($x:expr, $b:expr, $f:expr, $p:ident: u64 $(,)?) => {{
-        if let Some($p) = $x.as_u64() { $b } else { $f }
+        if let Some(s) = $x.as_u64() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
     }};
     ($x:expr, $b:expr, $f:expr, $p:ident: f64 $(,)?) => {{
-        if let Some($p) = $x.as_f64() { $b } else { $f }
+        if let Some(s) = $x.as_f64() {
+            $p = s;
+            $b
+        } else {
+            $f
+        }
     }};
     ($x:expr, $b:expr, $f:expr, { $k:literal: $v:tt $(,)? } $(,)?) => {{
         if let Some(v) = $x.get($k) {
@@ -150,7 +174,7 @@ macro_rules! ifletjson {
                 impl $crate::Exclusion for E {
                     const EXCLUDE: &'static phf::Set<&'static str> = &phf::phf_set!{ $($kp),+ };
                 }
-                let $e = $crate::Exclude {
+                $e = $crate::Exclude {
                     object,
                     _exclude: PhantomData::<E>,
                 };
@@ -161,7 +185,8 @@ macro_rules! ifletjson {
         }, $f, { $( $kp: $vp ),+ })
     }};
     ($x:expr, $b:expr, $f:expr, {..$e:ident} $(,)?) => {
-        if let Some($e) = $x.as_object() {
+        if let Some(s) = $x.as_object() {
+            $e = s;
             $b
         } else {
             $f
@@ -183,7 +208,108 @@ macro_rules! ifletjson {
     }}
 }
 
-macro_rules! matchjson {
+macro_rules! varsarray {
+    ($c:expr, []) => {
+        $c
+    };
+    ($c:expr, [$p:tt $(,)?]) => {
+        varsjson!($c, $p)
+    };
+    ($c:expr, [$($e:ident @ )? .. $(,)?] $(rev [])?) => {
+        varsjson!($c, $($e)?)
+    };
+    ($c:expr, [$($e:ident @)? .. $(,)?] rev [$p1:tt $(,$p2:tt)* $(,)?]) => {
+        varsarray!(varsjson!($c, $p1), [$($e @ )? ..] rev [$($p2)*])
+    };
+    ($c:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?] rev [$($p3:tt)*]) => {
+        varsarray!($c, [$($e @ )? .., $($p2)*] rev [$p1, $($p3)*])
+    };
+    ($c:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?]) => {
+        varsarray!($c, [$($e @ )? .., $($p2)*] rev [$p1])
+    };
+    ($c:expr, [$p1:tt, $($p2:tt)+]) => {
+        varsarray!(varsjson!($c, $p1), [$($p2)*])
+    };
+}
+
+macro_rules! varsjson {
+    ($c:expr,) => {
+        $c
+    };
+    ($c:expr, | $p1:tt | $($p2:tt)*) => {
+        varsjson!(varsjson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, & $p1:tt & $($p2:tt)*) => {
+        varsjson!(varsjson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, $p1:tt | $($p2:tt)*) => {
+        varsjson!($c, | $p1 | $($p2)*)
+    };
+    ($c:expr, $p1:tt & $($p2:tt)*) => {
+        varsjson!($c, & $p1 & $($p2)*)
+    };
+    ($c:expr, ($($p:tt)*) $(,)?) => {
+        varsjson!($c, $($p)*)
+    };
+    ($c:expr, _ $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident $(,)?) => {{
+        #[allow(unused)]
+        let $p;
+        #[allow(unused)]
+        #[allow(unreachable_code)]
+        #[allow(clippy::diverging_sub_expression)]
+        if false {
+            $p = panic!();
+        }
+        $c
+    }};
+    ($c:expr, $p1:ident @ $($p2:tt)*) => {
+        varsjson!(varsjson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, $p:literal $(,)?) => {
+        $c
+    };
+    ($c:expr, null $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident: $(&)? str $(,)?) => {
+        varsjson!($c, $p)
+    };
+    ($c:expr, $p:ident: $(&)? bool $(,)?) => {
+        varsjson!($c, $p)
+    };
+    ($c:expr, $p:ident: $(&)? i64 $(,)?) => {
+        varsjson!($c, $p)
+    };
+    ($c:expr, $p:ident: $(&)? u64 $(,)?) => {
+        varsjson!($c, $p)
+    };
+    ($c:expr, $p:ident: $(&)? f64 $(,)?) => {
+        varsjson!($c, $p)
+    };
+    ($c:expr, { $k:literal: $v:tt $(,)? } $(,)?) => {
+        varsjson!($c, $v)
+    };
+    ($c:expr, { $k:literal: $v:tt, $( $kp:literal: $vp:tt ),+ $(,)? } $(,)?) => {
+        varsjson!(varsjson!($c, {$k: $v}), { $( $kp: $vp ),+ })
+    };
+    ($c:expr, { $( $kp:literal: $vp:tt, )+ ..$e:ident } $(,)?) => {
+        varsjson!(varsjson!($c, $e), { $( $kp: $vp ),+ })
+    };
+    ($c:expr, {..$e:ident} $(,)?) => {
+        varsjson!($c, $e)
+    };
+    ($c:expr, {} $(,)?) => {
+        $c
+    };
+    ($c:expr, [$($p:tt)*] $(,)?) => {
+        varsarray!($c, [$($p)*])
+    };
+}
+
+macro_rules! matchjson_raw {
     ($x:expr, _ => $b:expr $(,)?) => {
         $b
     };
@@ -192,11 +318,31 @@ macro_rules! matchjson {
         $b
     }};
     ($x:expr, $p1:tt => $b:expr, $($p2:tt => $fp:expr),+ $(,)?) => {
-        ifletjson!($x, $b, matchjson!($x, $($p2 => $fp),+), $p1)
+        'bail: {
+            varsjson!(
+                {
+                    ifletjson!($x, {}, break 'bail matchjson_raw!($x, $($p2 => $fp),+), $p1);
+                    $b
+                },
+                $p1,
+            )
+        }
     };
 }
 
+macro_rules! matchjson {
+    ($x:expr, $($t:tt)*) => {{
+        let s: &serde_json::Value = &$x;
+        matchjson_raw!(s, $($t)*)
+    }};
+}
+
 fn main() {
+    matchjson!(
+        json!("123"),
+        (x: str) => println!("{x}"),
+        _ => {}
+    );
     matchjson!(
         json!({"a": 1, "b": "2", "c": [1, 2, 3, 4, 5, 6, 7, 8, 9], "d": 4}),
         {"a": a, "b": (b: str), "c": (e @ [1, 2, c @ .., 8, 9]), ..d} => println!("{a} {b} {c:?} {d} {e}"),
@@ -206,15 +352,7 @@ fn main() {
         json!(["1"]),
         (
             | {"value": (x: i64)}
-            | [(x: str)]
-        ) => println!("{x}"),
-        _ => println!("err"),
-    );
-    matchjson!(
-        json!({"value": 1}),
-        (
-            | {"value": (x: i64)}
-            | [(x: str)]
+            | [(x: i64)]
         ) => println!("{x}"),
         _ => println!("err"),
     );
