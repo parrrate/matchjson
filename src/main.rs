@@ -13,6 +13,14 @@ fn main() {
         x => println!("{x}"),
     );
     matchjson!(
+        json!(["1"]),
+        (
+            | {"value": (y @ _: i64)}
+            | [(y @ _: str)]
+        ) => println!("{y}"),
+        _ => println!("err"),
+    );
+    matchjson!(
         json!([1]),
         (
             | {"value": (x: i64)}

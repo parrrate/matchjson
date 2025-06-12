@@ -229,9 +229,23 @@ macro_rules! ifletjson {
             $f
         }
     }};
+    ($x:expr, $b:expr, $f:expr, _: $(&)? str $(,)?) => {{
+        if $x.is_string() {
+            $b
+        } else {
+            $f
+        }
+    }};
     ($x:expr, $b:expr, $f:expr, $p:ident: bool $(,)?) => {{
         if let Some(s) = $x.as_bool() {
             $p = s;
+            $b
+        } else {
+            $f
+        }
+    }};
+    ($x:expr, $b:expr, $f:expr, _: $(&)? bool $(,)?) => {{
+        if $x.is_bool() {
             $b
         } else {
             $f
@@ -245,6 +259,13 @@ macro_rules! ifletjson {
             $f
         }
     }};
+    ($x:expr, $b:expr, $f:expr, _: $(&)? i64 $(,)?) => {{
+        if $x.is_i64() {
+            $b
+        } else {
+            $f
+        }
+    }};
     ($x:expr, $b:expr, $f:expr, $p:ident: u64 $(,)?) => {{
         if let Some(s) = $x.as_u64() {
             $p = s;
@@ -253,9 +274,23 @@ macro_rules! ifletjson {
             $f
         }
     }};
+    ($x:expr, $b:expr, $f:expr, _: $(&)? u64 $(,)?) => {{
+        if $x.is_u64() {
+            $b
+        } else {
+            $f
+        }
+    }};
     ($x:expr, $b:expr, $f:expr, $p:ident: f64 $(,)?) => {{
         if let Some(s) = $x.as_f64() {
             $p = s;
+            $b
+        } else {
+            $f
+        }
+    }};
+    ($x:expr, $b:expr, $f:expr, _: $(&)? f64 $(,)?) => {{
+        if $x.is_f64() {
             $b
         } else {
             $f
@@ -395,17 +430,32 @@ macro_rules! varsjson {
     ($c:expr, $p:ident: $(&)? str $(,)?) => {
         $crate::varsjson!($c, $p)
     };
+    ($c:expr, _: $(&)? str $(,)?) => {
+        $c
+    };
     ($c:expr, $p:ident: $(&)? bool $(,)?) => {
         $crate::varsjson!($c, $p)
+    };
+    ($c:expr, _: $(&)? bool $(,)?) => {
+        $c
     };
     ($c:expr, $p:ident: $(&)? i64 $(,)?) => {
         $crate::varsjson!($c, $p)
     };
+    ($c:expr, _: $(&)? i64 $(,)?) => {
+        $c
+    };
     ($c:expr, $p:ident: $(&)? u64 $(,)?) => {
         $crate::varsjson!($c, $p)
     };
+    ($c:expr, _: $(&)? u64 $(,)?) => {
+        $c
+    };
     ($c:expr, $p:ident: $(&)? f64 $(,)?) => {
         $crate::varsjson!($c, $p)
+    };
+    ($c:expr, _: $(&)? f64 $(,)?) => {
+        $c
     };
     ($c:expr, { $k:literal: $v:tt $(,)? } $(,)?) => {
         $crate::varsjson!($c, $v)
