@@ -146,55 +146,60 @@ macro_rules! ifletarray {
             _ => $f,
         }
     };
-    ($x:expr, [$p:tt $(,)?], $b:expr, $f:expr $(,)?) => {
+    ($x:expr, [$p:tt $(,)?], $b:expr, $f:expr $(,)?) => {'bail: {
         match $x {
-            [only] => $crate::ifletjson!(only, $b, $f, $p),
-            _ => $f,
+            [only] => $crate::ifletjson!(only, break 'bail $b, {}, $p),
+            _ => {},
         }
-    };
+        $f
+    }};
     ($x:expr, [$($e:ident @ )? .. $(,)?] $(rev [])?, $b:expr, $f:expr $(,)?) => {{
         $($e = $x;)?
         $b
     }};
-    ($x:expr, [$($e:ident @)? .. $(,)?] rev [$p1:tt $(,$p2:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
+    ($x:expr, [$($e:ident @)? .. $(,)?] rev [$p1:tt $(,$p2:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {'bail: {
         match $x {
             [rest @ .., last] => $crate::ifletjson!(
                 last,
-                $crate::ifletarray!(rest, [$($e @ )? ..] rev [$($p2)*], $b, $f),
-                $f,
+                $crate::ifletarray!(rest, [$($e @ )? ..] rev [$($p2)*], break 'bail $b, {}),
+                {},
                 $p1,
             ),
-            _ => $f,
+            _ => {},
         }
-    };
+        $f
+    }};
     ($x:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?] rev [$($p3:tt)*], $b:expr, $f:expr $(,)?) => {
         $crate::ifletarray!($x, [$($e @ )? .., $($p2)*] rev [$p1, $($p3)*], $b, $f)
     };
     ($x:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?], $b:expr, $f:expr $(,)?) => {
         $crate::ifletarray!($x, [$($e @ )? .., $($p2)*] rev [$p1], $b, $f)
     };
-    ($x:expr, [$p1:tt, $($p2:tt)+], $b:expr, $f:expr $(,)?) => {
+    ($x:expr, [$p1:tt, $($p2:tt)+], $b:expr, $f:expr $(,)?) => {'bail: {
         match $x {
             [first, rest @ ..] => $crate::ifletjson!(
                 first,
-                $crate::ifletarray!(rest, [$($p2)*], $b, $f),
-                $f,
+                $crate::ifletarray!(rest, [$($p2)*], break 'bail $b, {}),
+                {},
                 $p1,
             ),
-            _ => $f,
+            _ => {},
         }
-    };
+        $f
+    }};
 }
 
 #[macro_export]
 #[doc(hidden)]
 macro_rules! ifletjson {
-    ($x:expr, $b:expr, $f:expr, | $p1:tt | $($p2:tt)*) => {
-        $crate::ifletjson!($x, $b, $crate::ifletjson!($x, $b, $f, $($p2)*), $p1)
-    };
-    ($x:expr, $b:expr, $f:expr, & $p1:tt & $($p2:tt)*) => {
-        $crate::ifletjson!($x, $crate::ifletjson!($x, $b, $f, $($p2)*), $f, $p1)
-    };
+    ($x:expr, $b:expr, $f:expr, | $p1:tt | $($p2:tt)*) => {'bail: {
+        $crate::ifletjson!($x, {}, $crate::ifletjson!($x, {}, break 'bail $f, $($p2)*), $p1);
+        $b
+    }};
+    ($x:expr, $b:expr, $f:expr, & $p1:tt & $($p2:tt)*) => {'bail: {
+        $crate::ifletjson!($x, $crate::ifletjson!($x, break 'bail $b, {}, $($p2)*), {}, $p1);
+        $f
+    }};
     ($x:expr, $b:expr, $f:expr, $p1:tt | $($p2:tt)*) => {
         $crate::ifletjson!($x, $b, $f, | $p1 | $($p2)*)
     };
@@ -255,17 +260,17 @@ macro_rules! ifletjson {
             $f
         }
     }};
-    ($x:expr, $b:expr, $f:expr, { $k:literal: $v:tt $(,)? } $(,)?) => {{
+    ($x:expr, $b:expr, $f:expr, { $k:literal: $v:tt $(,)? } $(,)?) => {'bail: {
         if let Some(v) = $x.get($k) {
-            $crate::ifletjson!(v, $b, $f, $v)
-        } else {
-            $f
+            $crate::ifletjson!(v, break 'bail $b, {}, $v)
         }
+        $f
     }};
-    ($x:expr, $b:expr, $f:expr, { $k:literal: $v:tt, $( $kp:literal: $vp:tt ),+ $(,)? } $(,)?) => {{
-        $crate::ifletjson!($x, $crate::ifletjson!($x, $b, $f, { $( $kp: $vp ),+ }), $f, {$k: $v})
+    ($x:expr, $b:expr, $f:expr, { $k:literal: $v:tt, $( $kp:literal: $vp:tt ),+ $(,)? } $(,)?) => {'bail: {
+        $crate::ifletjson!($x, $crate::ifletjson!($x, break 'bail $b, {}, { $( $kp: $vp ),+ }), {}, {$k: $v});
+        $f
     }};
-    ($x:expr, $b:expr, $f:expr, { $( $kp:literal: $vp:tt, )+ ..$e:ident } $(,)?) => {{
+    ($x:expr, $b:expr, $f:expr, { $( $kp:literal: $vp:tt, )+ ..$e:ident } $(,)?) => {'bail: {
         $crate::ifletjson!($x, {
             if let Some(object) = $x.as_object() {
                 $e = {
@@ -285,11 +290,10 @@ macro_rules! ifletjson {
                         _exclude: $crate::Excluded::<E>,
                     }
                 };
-                $b
-            } else {
-                $f
+                break 'bail $b
             }
-        }, $f, { $( $kp: $vp ),+ })
+        }, {}, { $( $kp: $vp ),+ });
+        $f
     }};
     ($x:expr, $b:expr, $f:expr, {..$e:ident} $(,)?) => {
         if let Some(s) = $x.as_object() {
@@ -306,12 +310,11 @@ macro_rules! ifletjson {
             $f
         }
     };
-    ($x:expr, $b:expr, $f:expr, [$($p:tt)*] $(,)?) => {{
+    ($x:expr, $b:expr, $f:expr, [$($p:tt)*] $(,)?) => {'bail: {
         if let Some(array) = $x.as_array() {
-            $crate::ifletarray!(array.as_slice(), [$($p)*], $b, $f)
-        } else {
-            $f
+            $crate::ifletarray!(array.as_slice(), [$($p)*], break 'bail $b, {})
         }
+        $f
     }}
 }
 
@@ -431,6 +434,7 @@ macro_rules! matchjson_raw {
         $b
     }};
     ($x:expr, $p1:tt => $b:expr, $($p2:tt => $fp:expr),+ $(,)?) => {
+        #[allow(unreachable_code)]
         'bail: {
             $crate::varsjson!(
                 {
