@@ -71,6 +71,12 @@ impl<'a, E: Exclusion> Exclude<'a, E> {
             .then(|| self.object.get(key))
             .flatten()
     }
+
+    pub fn get_key_value(&self, key: &str) -> Option<(&'a String, &'a serde_json::Value)> {
+        (!E::EXCLUDE.contains(key))
+            .then(|| self.object.get_key_value(key))
+            .flatten()
+    }
 }
 
 pub struct ExcludeIter<'a, E: Exclusion> {
