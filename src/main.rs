@@ -20,4 +20,14 @@ fn main() {
         ) => println!("{x}"),
         _ => println!("err"),
     );
+    let v = json!([1]);
+    let x = matchjson!(
+        v,
+        (
+            | {"value": (y @ x: i64)}
+            | [(y @ x: i64)]
+        ) => &y,
+        _ => &serde_json::Value::Null,
+    );
+    println!("{x}");
 }

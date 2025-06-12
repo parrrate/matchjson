@@ -367,7 +367,7 @@ macro_rules! varsjson {
     };
     ($c:expr, $p:ident $(,)?) => {{
         #[allow(unused)]
-        let $p;
+        let mut $p;
         #[allow(unused)]
         #[allow(unreachable_code)]
         #[allow(clippy::diverging_sub_expression)]
