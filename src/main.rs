@@ -1,4 +1,4 @@
-use matchjson::matchjson;
+use matchjson::{jsonmatches, matchjson};
 use serde_json::json;
 
 fn main() {
@@ -30,4 +30,5 @@ fn main() {
         _ => &serde_json::Value::Null,
     );
     println!("{x}");
+    assert!(jsonmatches!(json!({"a": "b"}), {"a": "b"}));
 }

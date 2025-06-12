@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display};
 
+#[doc(hidden)]
 pub use phf;
 use serde::Serialize;
 pub use serde_json;
@@ -276,6 +277,9 @@ macro_rules! ifletjson {
                 $e = {
                     #[derive(Clone, Copy)]
                     struct E;
+                    mod phf {
+                        pub use $crate::phf::*;
+                    }
                     impl $crate::Exclusion for E {
                         const EXCLUDE: &'static $crate::phf::Set<&'static str> =
                             &$crate::phf::phf_set!{ $($kp),+ };
@@ -458,4 +462,11 @@ macro_rules! matchjson {
         let s: &$crate::serde_json::Value = &$x;
         $crate::matchjson_raw!(s, $($t)*)
     }};
+}
+
+#[macro_export]
+macro_rules! jsonmatches {
+    ($x:expr, $($p:tt)*) => {
+        $crate::ifletjson!($x, true, false, $($p)*)
+    };
 }
