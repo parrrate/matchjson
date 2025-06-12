@@ -37,7 +37,7 @@ impl<E: Exclusion> Serialize for Exclude<'_, E> {
         S: serde::Serializer,
     {
         use serde::ser::SerializeMap;
-        let mut map = serializer.serialize_map(Some(self.object.len() - E::EXCLUDE.len()))?;
+        let mut map = serializer.serialize_map(Some(self.len()))?;
         for (k, v) in self {
             map.serialize_entry(k, v)?;
         }
@@ -76,6 +76,17 @@ impl<'a, E: Exclusion> Exclude<'a, E> {
         (!E::EXCLUDE.contains(key))
             .then(|| self.object.get_key_value(key))
             .flatten()
+    }
+
+    pub fn len(&self) -> usize {
+        self.object
+            .len()
+            .checked_sub(E::EXCLUDE.len())
+            .expect("all excluded keys must be initially present")
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
