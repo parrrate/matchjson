@@ -34,7 +34,7 @@ fn main() {
         (
             | {"value": (y @ x: i64)}
             | [(y @ x: i64)]
-        ) => &y,
+        ) => {println!("{x}"); &y},
         _ => &serde_json::Value::Null,
     );
     println!("{x}");

@@ -479,6 +479,119 @@ macro_rules! varsjson {
 
 #[macro_export]
 #[doc(hidden)]
+macro_rules! freezearray {
+    ($c:expr, []) => {
+        $c
+    };
+    ($c:expr, [$p:tt $(,)?]) => {
+        $crate::freezejson!($c, $p)
+    };
+    ($c:expr, [$($e:ident @ )? .. $(,)?] $(rev [])?) => {
+        $crate::freezejson!($c, $($e)?)
+    };
+    ($c:expr, [$($e:ident @)? .. $(,)?] rev [$p1:tt $(,$p2:tt)* $(,)?]) => {
+        $crate::freezearray!($crate::freezejson!($c, $p1), [$($e @ )? ..] rev [$($p2)*])
+    };
+    ($c:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?] rev [$($p3:tt)*]) => {
+        $crate::freezearray!($c, [$($e @ )? .., $($p2)*] rev [$p1, $($p3)*])
+    };
+    ($c:expr, [$($e:ident @ )? .., $p1:tt $(, $p2:tt)* $(,)?]) => {
+        $crate::freezearray!($c, [$($e @ )? .., $($p2)*] rev [$p1])
+    };
+    ($c:expr, [$p1:tt, $($p2:tt)+]) => {
+        $crate::freezearray!($crate::freezejson!($c, $p1), [$($p2)*])
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! freezejson {
+    ($c:expr,) => {
+        $c
+    };
+    ($c:expr, | $p1:tt | $($p2:tt)*) => {
+        $crate::freezejson!($crate::freezejson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, & $p1:tt & $($p2:tt)*) => {
+        $crate::freezejson!($crate::freezejson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, $p1:tt | $($p2:tt)*) => {
+        $crate::freezejson!($c, | $p1 | $($p2)*)
+    };
+    ($c:expr, $p1:tt & $($p2:tt)*) => {
+        $crate::freezejson!($c, & $p1 & $($p2)*)
+    };
+    ($c:expr, ($($p:tt)*) $(,)?) => {
+        $crate::freezejson!($c, $($p)*)
+    };
+    ($c:expr, _ $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident $(,)?) => {{
+        let $p = $p;
+        $c
+    }};
+    ($c:expr, $p1:ident @ $($p2:tt)*) => {
+        $crate::freezejson!($crate::freezejson!($c, $p1), $($p2)*)
+    };
+    ($c:expr, $p:literal $(,)?) => {
+        $c
+    };
+    ($c:expr, null $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident: $(&)? str $(,)?) => {
+        $crate::freezejson!($c, $p)
+    };
+    ($c:expr, _: $(&)? str $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident: $(&)? bool $(,)?) => {
+        $crate::freezejson!($c, $p)
+    };
+    ($c:expr, _: $(&)? bool $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident: $(&)? i64 $(,)?) => {
+        $crate::freezejson!($c, $p)
+    };
+    ($c:expr, _: $(&)? i64 $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident: $(&)? u64 $(,)?) => {
+        $crate::freezejson!($c, $p)
+    };
+    ($c:expr, _: $(&)? u64 $(,)?) => {
+        $c
+    };
+    ($c:expr, $p:ident: $(&)? f64 $(,)?) => {
+        $crate::freezejson!($c, $p)
+    };
+    ($c:expr, _: $(&)? f64 $(,)?) => {
+        $c
+    };
+    ($c:expr, { $k:literal: $v:tt $(,)? } $(,)?) => {
+        $crate::freezejson!($c, $v)
+    };
+    ($c:expr, { $k:literal: $v:tt, $( $kp:literal: $vp:tt ),+ $(,)? } $(,)?) => {
+        $crate::freezejson!($crate::freezejson!($c, {$k: $v}), { $( $kp: $vp ),+ })
+    };
+    ($c:expr, { $( $kp:literal: $vp:tt, )+ ..$e:ident } $(,)?) => {
+        $crate::freezejson!($crate::freezejson!($c, $e), { $( $kp: $vp ),+ })
+    };
+    ($c:expr, {..$e:ident} $(,)?) => {
+        $crate::freezejson!($c, $e)
+    };
+    ($c:expr, {} $(,)?) => {
+        $c
+    };
+    ($c:expr, [$($p:tt)*] $(,)?) => {
+        $crate::freezearray!($c, [$($p)*])
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
 macro_rules! matchjson_raw {
     ($x:expr, _ => $b:expr $(,)?) => {
         $b
@@ -498,7 +611,10 @@ macro_rules! matchjson_raw {
                         break 'bail $crate::matchjson_raw!($x, $($p2 => $fp),+),
                         $p1,
                     );
-                    $b
+                    $crate::freezejson!(
+                        $b,
+                        $p1,
+                    )
                 },
                 $p1,
             )
