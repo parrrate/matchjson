@@ -1,3 +1,10 @@
+#![doc(
+    html_favicon_url = "https://media.githubusercontent.com/media/parrrate/matchjson/refs/heads/main/assets/images/logo_fullsize.png"
+)]
+#![doc(
+    html_logo_url = "https://media.githubusercontent.com/media/parrrate/matchjson/refs/heads/main/assets/images/logo_fullsize.png"
+)]
+
 use std::fmt::{Debug, Display};
 
 #[doc(hidden)]
