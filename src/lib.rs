@@ -55,6 +55,20 @@
 //!     },
 //!     _ => unreachable!(),
 //! );
+//! matchjson!(
+//!     json!({
+//!         "b": 123,
+//!         "c": false
+//!     }),
+//!     (
+//!         ({"a": (x: i64)} | {"b": (x: i64)}) &
+//!         ({"c": (y: bool)} | {"d": (y: bool)})
+//!     ) => {
+//!         assert_eq!(123, x);
+//!         assert_eq!(false, y);
+//!     },
+//!     _ => unreachable!(),
+//! );
 //! ```
 
 #![doc(
