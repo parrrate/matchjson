@@ -2,6 +2,13 @@
 name = "matchjson"
 version = "0.0.0"
 edition = "2024"
+publish = true
+repository = "https://github.com/parrrate/matchjson"
+authors = ["Alisa Feistel <alisafeistel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+rust-version = "1.87"
+documentation = "https://docs.rs/matchjson"
+description = "Pattern matching on `serde_json::Value`"
 
 [dependencies]
 ghost = "0.1.19"
