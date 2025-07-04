@@ -3,10 +3,10 @@
 //! ```rust
 //! # use serde_json::json; use matchjson::*;
 //!
-//! assert_eq!(json!("as is"), matchjson!(
+//! matchjson!(
 //!     json!("as is"),
-//!     as_is => as_is.clone(),
-//! ));
+//!     as_is => assert_eq!(&json!("as is"), as_is),
+//! );
 //! ```
 
 #![doc(
