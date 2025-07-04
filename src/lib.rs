@@ -10,6 +10,7 @@ use std::fmt::{Debug, Display};
 #[doc(hidden)]
 pub use phf;
 use serde::Serialize;
+#[doc(hidden)]
 pub use serde_json;
 
 #[doc(hidden)]
