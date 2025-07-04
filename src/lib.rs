@@ -1,3 +1,14 @@
+//! `match`-like handling of [`serde_json::Value`]
+//!
+//! ```rust
+//! # use serde_json::json; use matchjson::*;
+//!
+//! assert_eq!(json!("as is"), matchjson!(
+//!     json!("as is"),
+//!     as_is => as_is.clone(),
+//! ));
+//! ```
+
 #![doc(
     html_favicon_url = "https://media.githubusercontent.com/media/parrrate/matchjson/refs/heads/main/assets/images/logo_fullsize.png"
 )]
