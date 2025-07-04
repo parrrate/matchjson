@@ -2,10 +2,58 @@
 //!
 //! ```rust
 //! # use serde_json::json; use matchjson::*;
-//!
 //! matchjson!(
 //!     json!("as is"),
 //!     as_is => assert_eq!(&json!("as is"), as_is),
+//! );
+//! matchjson!(
+//!     json!("string"),
+//!     (s: str) => assert_eq!("string", s),
+//!     (n: i64) => unreachable!(),
+//!     _ => unreachable!(),
+//! );
+//! matchjson!(
+//!     json!(123),
+//!     (s: str) => unreachable!(),
+//!     (n: i64) => assert_eq!(123, n),
+//!     _ => unreachable!(),
+//! );
+//! matchjson!(
+//!     json!({}),
+//!     (s: str) => unreachable!(),
+//!     (n: i64) => unreachable!(),
+//!     _ => {},
+//! );
+//! matchjson!(
+//!     json!({
+//!         "deeply": {
+//!             "nested": {
+//!                 "objects": "with",
+//!                 "extra": "fields",
+//!                 "and": ["numbers", 0, 1, 2, 3, 4, 5, 6, 7]
+//!             }
+//!         }
+//!     }),
+//!     {
+//!         "deeply": {
+//!             "nested": {
+//!                 "objects": (with: str),
+//!                 "and": ["numbers", nums @ .., 7],
+//!                 ..extra
+//!             }
+//!         }
+//!     } => {
+//!         assert_eq!("with", with);
+//!         assert_eq!(
+//!             [(&"extra".into(), &json!("fields"))].as_slice(),
+//!             extra.into_iter().collect::<Vec<_>>().as_slice(),
+//!         );
+//!         assert_eq!(
+//!             &[json!(0), json!(1), json!(2), json!(3), json!(4), json!(5), json!(6)],
+//!             nums
+//!         );
+//!     },
+//!     _ => unreachable!(),
 //! );
 //! ```
 
@@ -620,7 +668,6 @@ macro_rules! matchjson_raw {
         $b
     }};
     ($x:expr, $p1:tt => $b:expr, $($p2:tt => $fp:expr),+ $(,)?) => {
-        #[allow(unreachable_code)]
         'bail: {
             $crate::varsjson!(
                 {
