@@ -624,12 +624,17 @@ macro_rules! matchjson_raw {
         'bail: {
             $crate::varsjson!(
                 {
-                    $crate::ifletjson!(
-                        $x,
-                        {},
-                        break 'bail $crate::matchjson_raw!($x, $($p2 => $fp),+),
-                        $p1,
-                    );
+                    #[allow(unreachable_code)]
+                    if true {
+                        $crate::ifletjson!(
+                            $x,
+                            {},
+                            break 'bail $crate::matchjson_raw!($x, $($p2 => $fp),+),
+                            $p1,
+                        );
+                    } else {
+                        ::core::unreachable!();
+                    }
                     $crate::freezejson!(
                         $b,
                         $p1,
